@@ -9,13 +9,20 @@ import (
 	"io"
 	"strings"
 	"strconv"
+
+	"MCMF/util"
+	"reflect"
+	"MCMF/initial"
+	"MCMF/flowMap"
+	"MCMF/data"
 )
+
 
 /**
 The project has two parts:
-1. constuct map with map.txt file
-	1.1 map.txt includes [number of nodes],[number of edges] in the first line
-	1.2 map.txt includes each edge's content(src node, dst node, capacity, cost) in following lines
+1. constuct flowMap with flowMap.txt file
+	1.1 flowMap.txt includes [number of nodes],[number of edges] in the first line
+	1.2 flowMap.txt includes each edge's content(src node, dst node, capacity, cost) in following lines
 2. find all paths with MCMF algrithm
 	2.1 find currently min cost path with SPFA algrithm and add this path to result
 	2.2 if no incremental path exsits, return. Or continue finding SPFA path
@@ -38,25 +45,58 @@ var gPre []int  // previous node before node i of the chosen min cost path
 var gPath []int  // edge which have dest node i of chosen min cost path
 var gDist []int  // the min cost from src node to i node
 
-var gEdgeCount int // used in constructing map to record edge's index
+var gEdgeCount int // used in constructing flowMap to record edge's index
 var edgeNum int  // number of edges
 var nodeNum int  // number of nodes
 
+
+
 func main() {
-	err := constructMap()  // construct map with map.txt
-	if(err != nil) {
-		panic(err)
+	//err := constructMap()  // construct flowMap with flowMap.txt
+	//if(err != nil) {
+	//	panic(err)
+	//}
+	//result, cost := mcmf(0, nodeNum-1)  // result representing all path. each path was representing by a series of node index along path
+	//fmt.Println("cost:")
+	//fmt.Println(cost)
+	//fmt.Println("result:")
+	//fmt.Println(result)
+
+
+	factory := util.DBReaderFactory{Url:"47.104.16.133", Database:"cluster"}
+	reader := factory.GetDBReader("mongo")
+	reader.GetMachines()
+	reader.GetTasks()
+	reader.InitTaskToMachineCost()
+	if mongoReader, ok := reader.(*util.MongoReader); ok {
+		fmt.Println(reflect.TypeOf(mongoReader))
+		defer mongoReader.Session.Close()
+	}else {
+		panic("type revert failed")
 	}
-	result, cost := mcmf(0, nodeNum-1)  // result representing all path. each path was representing by a series of node index along path
-	fmt.Println("cost:")
-	fmt.Println(cost)
-	fmt.Println("result:")
-	fmt.Println(result)
+	initial.InitGlobal()
+	initial.InitResource()
+
+	builder := flowMap.MapBuilder{}
+	builder.BuildMap()
+	var node data.NodeI
+	node = data.ApplicationNodes[0]
+	for len(node.GetRightOutArcs()) != 0{
+		fmt.Println(node.GetID())
+		fmt.Println(reflect.TypeOf(node))
+		node = node.GetRightOutArcs()[0].DstNode
+	}
+	fmt.Println(node.GetID())
+	fmt.Println(reflect.TypeOf(node))
+	fmt.Println("endNode: ", data.EndNode.GetID())
+
+
+
 
 }
 
 /**
- 1. accept input data from map.txt
+ 1. accept input data from flowMap.txt
  2. initialize gHead, gEdges
  3. insertEdge between node with u,v,vol,cost given by input data
  */
@@ -71,7 +111,7 @@ func constructMap()(error){
 	rd := bufio.NewReader(f)
 
 	/*
-	add all map data to memory.
+	add all flowMap data to memory.
 	check data format
 	initialize gHead and gEdges
 	*/
