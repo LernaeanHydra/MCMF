@@ -37,9 +37,13 @@ func (solver *MapSolver)UpdateScheduledMachineTaskMap(task *data.Task, machineNo
 				for index,_ := range machineNode.ScheduledTasks[tag] {
 					if machineNode.ScheduledTasks[tag][index] == arcIndex{
 						machineNode.ScheduledTasks[tag] = append(machineNode.ScheduledTasks[tag][:index], machineNode.ScheduledTasks[tag][index+1:]...)
+						if len(machineNode.ScheduledTasks[tag]) == 0{
+							delete(machineNode.ScheduledTasks, tag)  // if this tag has no task, delete it
+						}
 						break
 					}
 				}
+
 			}else{ // if this tag hasn't exsited
 				panic("this machine must has this tag before the task removed")
 			}
@@ -616,9 +620,79 @@ func (solver *MapSolver)GetPreemptArcList(node *data.MachineNode, mutexArcList [
 	where should we schedule tasks that preempted or mutexed by the task and we can get min cost, and preemption cost list for every arc
  */
 func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretArcList []int)(int, []int){
+	if regretArcList == nil || len(regretArcList) == 0{
+		panic("GetMinCostAfterRegreting's regretArcList can't be empty")
+	}
+	costSum := 0
+	costList := make([]int, len(regretArcList))
+	preMachineNodeId := node.GetID()
+	scheduledMachineList := make([]int, len(regretArcList))
+	for i, _ := range scheduledMachineList{  // initial all task to -1 machine
+		scheduledMachineList[i] = -1
+	}
+	for i, _:= range regretArcList {
+		node := data.ArcList[regretArcList[i]].DstNode
+		templateNode, err := node.(*data.TemplateNode)
+		if err {
+			panic("regretArc's dstNode must be templateNode")
+		}
+		task := templateNode.SourceTasks[0]
+		minCost := data.MAXINTVALUE
+		for j,_ := range data.TaskToMachineCost[task.Index] {
+			if data.TaskToMachineCost[task.Index][j] < minCost && preMachineNodeId != j{
+				// check its capacity and its mutexed tag
+				hasEnoughCapacity := false
+				isMutexed := false
 
-	
-	return  0, nil
+				toMachine := data.ClusterMachineList[j]
+				toMachineNode := toMachine.Node
+
+				// check if mutexed
+				for _,tag := range task.ExclusiveTag{
+					if _, isExsit := toMachineNode.ScheduledTasks[tag]; isExsit {
+						isMutexed = true
+						break
+					}
+				}
+				if isMutexed {
+					break
+				}
+				// check if has enough capacity
+				arcToEnd := toMachineNode.GetRightOutArcs()[0]
+				sumCapacity := make([]int, len(arcToEnd.Capacity))
+				data.ListAdd(sumCapacity, arcToEnd.Capacity)
+				for k,_ := range scheduledMachineList { // check if this machine has been used for previous task schedulation
+					if j == scheduledMachineList[k] {
+						node_ := data.ArcList[regretArcList[k]].DstNode
+						templateNode_ := node_.(*data.TemplateNode)
+						task_ := templateNode_.SourceTasks[0]
+						data.ListSub(sumCapacity, task_.GetCapacity())
+					}
+				}
+				if solver.HasEnoughCapacityForTask(sumCapacity, task){
+					hasEnoughCapacity = true
+				}
+				if !hasEnoughCapacity{
+					break
+				}
+
+				// update minCost and scheduledMachineList
+				minCost = data.TaskToMachineCost[task.Index][j]
+				scheduledMachineList[i] = j
+
+
+			}
+		}
+		costList[i] = -minCost
+
+	}
+	// get sumCost
+	for i,_ := range regretArcList {
+		costSum += (data.ArcList[regretArcList[i]].Cost - costList[i])
+	}
+
+
+	return  costSum, costList
 }
 
 /**

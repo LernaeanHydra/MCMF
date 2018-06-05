@@ -37,6 +37,17 @@ func (task *Task)GetHeadNode() NodeI{
 	return task.HeadNode
 }
 
+func (task *Task)GetCapacity() []int{
+	var keyInstanceNum int
+	if task.IsKeyInstance {
+		keyInstanceNum = 1
+	}else {
+		keyInstanceNum = 0
+	}
+	capacity := []int{task.Cpu, task.Mem, task.DiskSize, keyInstanceNum}
+	return capacity
+}
+
 //func (task *Task)AddTaskToRejectedList(t *Task) {
 //	task.TaskRejectedList = append(task.TaskRejectedList, t)
 //}
@@ -50,7 +61,7 @@ func (resource *Application)PrintResource()  {
 }
 
 type Machine struct {
-	Index int
+	Index int  // index of ClusterMachineList
 	Id string `bson:"_id"`
 	UID string `bson:"uid"`
 	Cpu int `bson:"cpu"`
@@ -97,7 +108,7 @@ type MutexableNodeI interface {
 }
 
 type Node struct {
-	id int  // used for printing path
+	id int  // used for printing path, it's index of NodeList
 	leftInArcs []*Arc
 	leftOutArcs []*Arc
 	rightInArcs []*Arc

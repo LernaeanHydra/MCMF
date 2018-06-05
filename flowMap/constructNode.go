@@ -147,7 +147,7 @@ func (builder *MapBuilder)BuildMachineNode(resources *data.Machine) *data.Machin
 	var node *data.MachineNode
 	node = &data.MachineNode{Machine: resources}
 	node.SetID(data.NodeCounter)
-	data.NodeList = append(data.NodeList, node)
+	data.NodeList = append(data.NodeList, node) // its index is its id
 	data.NodeCounter++
 	return node
 }

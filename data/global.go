@@ -27,7 +27,7 @@ var MachineSum int
 var NodeCounter int  // it gives ID to Node
 var ArcCounter int
 
-var TaskToMachineCost [][]int
+var TaskToMachineCost [][]int  // task index  ——> machine index
 
 
 
@@ -49,6 +49,30 @@ func init()  {
 	TaskSum = 0
 	MachineSum = 0
 	TaskToMachineCost = make([][]int, 0)
+}
+
+/**
+	add l2 to l1
+ */
+func ListAdd(l1 []int, l2 []int){
+	if len(l1) != len(l2) {
+		panic("List add should between the same length lists")
+	}
+	for i, _ := range l1{
+		l1[i] += l2[i]
+	}
+}
+
+/**
+	sub l1 by l2
+ */
+func ListSub(l1 []int, l2 []int){
+	if len(l1) != len(l2) {
+		panic("List sub should between the same length lists")
+	}
+	for i, _ := range l1{
+		l1[i] -= l2[i]
+	}
 }
 
 
