@@ -21,7 +21,7 @@ type MapBuilder struct {
  */
 func (builder *MapBuilder)BuildArc(src data.NodeI, dst data.NodeI) (*data.Arc, *data.Arc) {
 	arc := &data.Arc{}
-	capacity := make([]int, 1) // todo this version only consider cpu resource
+	capacity := make([]int, data.RESOURCEDIMENSION) // todo this version only consider cpu resource
 	if node, ok := dst.(*data.ApplicationNode); ok{ // if dst node is applicationNode, its capacity should be the sum of its tasks resources
 		index := data.CurrentAppMap[node.Applicaiton.Name]
 		for _, tasks := range data.ApplicationAndTask[index]{
@@ -74,7 +74,7 @@ func (builder *MapBuilder)BuildArc(src data.NodeI, dst data.NodeI) (*data.Arc, *
 	reverseArc.DstNode = src
 	reverseArc.SrcNode = dst
 	reverseArc.Cost = 0
-	capacity2 := make([]int, 1)
+	capacity2 := make([]int, data.RESOURCEDIMENSION)
 	capacity2[0] = 0
 	reverseArc.Capacity = capacity2
 	reverseArc.ID = data.ArcCounter
@@ -88,7 +88,7 @@ func (builder *MapBuilder)BuildArc(src data.NodeI, dst data.NodeI) (*data.Arc, *
  */
 func (builder *MapBuilder)BuildArcWithMutex(src data.MutexableNodeI, dst data.NodeI) (*data.Arc, *data.Arc) {
 	arc := &data.Arc{}
-	capacity := make([]int, 1) // todo this version only consider cpu resource
+	capacity := make([]int, data.RESOURCEDIMENSION) // todo this version only consider cpu resource
 	if node, ok := src.(*data.CaseNode); ok { // src: Case, dst: Mutex or Machine
 		capacity[0] += node.SourceTasks[0].Cpu
 		arc.SrcNode = src.(*data.CaseNode)
@@ -105,7 +105,7 @@ func (builder *MapBuilder)BuildArcWithMutex(src data.MutexableNodeI, dst data.No
 	data.ArcCounter++
 
 	reverseArc := &data.Arc{}
-	capacity2 := make([]int, 1)
+	capacity2 := make([]int, data.RESOURCEDIMENSION)
 	capacity2[0] = 0
 	reverseArc.Capacity = capacity2
 	if _, ok := src.(*data.CaseNode); ok {
@@ -149,6 +149,8 @@ func (builder *MapBuilder)BuildMachineNode(resources *data.Machine) *data.Machin
 	node.SetID(data.NodeCounter)
 	data.NodeList = append(data.NodeList, node) // its index is its id
 	data.NodeCounter++
+
+	node.ScheduledTasks = make(map[string][]int)
 	return node
 }
 

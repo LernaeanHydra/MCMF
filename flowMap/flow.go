@@ -5,6 +5,7 @@ import (
 	"MCMF/data"
 	"strconv"
 	"errors"
+	"fmt"
 )
 
 type MapSolverI interface {
@@ -131,14 +132,17 @@ func (solver *MapSolver)HasCapacity(arcToMachine *data.Arc, arcToEnd *data.Arc) 
 	1.find all flow from start to end, start and end are indexes of NodeList. return all counter of two nodes connection; return the min cost and maxFlow
  */
 func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
-	result := make(map[string]int)
+	result := make(map[string]int) // there is how many srcNode-dstNode? the distance between srcNode and dstNode is 1
 	cost := 0
-	flow := make([]int, 0)
+	flow := make([]int, data.RESOURCEDIMENSION)
 
+	counter := 0
 	for true {
+		counter ++
+		fmt.Println("this is new spfa path " + strconv.Itoa(counter))
 		if isExsit, newCost, paths, arcs :=solver.GetSPFA(s, t); isExsit {
 			// paths[0] must start from startNode and after 0, all path start from machine Node.
-			var newFlow []int
+			newFlow := make([]int, data.RESOURCEDIMENSION)
 
 			// all paths ends at machineNode
 			// first path start from applicationNode
@@ -154,7 +158,9 @@ func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
 					// get flow of this path
 					pathFlow := data.NodeList[path[1]].GetLeftInArcs()[0].Capacity  // the flow of this task
 
-					newFlow = pathFlow
+					for j, _ := range newFlow{
+						newFlow[j] = pathFlow[j]
+					}
 
 					// sub capacity of the arc on this path
 					solver.UpdateCapacityOfPath(arcs, i, pathFlow)
@@ -304,6 +310,7 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 			}
 
 			if isEndNode && gDist[nodeIndex]+outArcList[i].Cost < gDist[toNodeIndex] { // if dstNode is EndNode, we need to store all path that can get min cost
+				panic("this code shouldn't run")
 				gDist[toNodeIndex] = gDist[nodeIndex] + outArcList[i].Cost
 				gPre[toNodeIndex][0] = nodeIndex
 				gPath[toNodeIndex][0] = outArcList[i].ID
@@ -376,6 +383,12 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 					}
 
 					if cost < gDist[data.EndNode.GetID()] {
+						// update endNode cost. remove all pre、path
+						gDist[data.EndNode.GetID()] = cost
+						gPre[data.EndNode.GetID()] = gPre[data.EndNode.GetID()][:0]
+						gPath[data.EndNode.GetID()] = gPath[data.EndNode.GetID()][:0]
+
+						// update machineNode
 						gDist[toNodeIndex] = cost
 						gPre[toNodeIndex][0] = nodeIndex
 						gPath[toNodeIndex][0] = outArcList[i].ID
@@ -633,7 +646,7 @@ func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretA
 	for i, _:= range regretArcList {
 		node := data.ArcList[regretArcList[i]].DstNode
 		templateNode, err := node.(*data.TemplateNode)
-		if err {
+		if !err {
 			panic("regretArc's dstNode must be templateNode")
 		}
 		task := templateNode.SourceTasks[0]

@@ -11,3 +11,4 @@ const CASENODE string = "caseNode"
 const MACHINENODE string = "machineNode"
 const MAXINTVALUE int = int(^uint(0) >> 1)
 
+const RESOURCEDIMENSION int = 1

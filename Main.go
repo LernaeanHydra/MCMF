@@ -15,6 +15,7 @@ import (
 	"MCMF/initial"
 	"MCMF/flowMap"
 	"MCMF/data"
+	"time"
 )
 
 
@@ -61,12 +62,20 @@ func main() {
 	//fmt.Println(cost)
 	//fmt.Println("result:")
 	//fmt.Println(result)
+	fd,_:=os.OpenFile("result2.log",os.O_RDWR|os.O_CREATE|os.O_APPEND,0644)
 
-
+	startTime1_1 := time.Now().UnixNano()
 	factory := util.DBReaderFactory{Url:"47.104.16.133", Database:"cluster"}
 	reader := factory.GetDBReader("mongo")
 	reader.GetMachines()
 	reader.GetTasks()
+	endTime1_2 := time.Now().UnixNano()
+
+	fd.Write([]byte("transfer data from dataBase: "))
+	fd.Write([]byte(strconv.FormatInt(endTime1_2-startTime1_1, 10)))
+	fd.Write([]byte("\n"))
+
+	startTime2_1 := time.Now().UnixNano()
 	reader.InitTaskToMachineCost()
 	if mongoReader, ok := reader.(*util.MongoReader); ok {
 		fmt.Println(reflect.TypeOf(mongoReader))
@@ -79,16 +88,35 @@ func main() {
 
 	builder := flowMap.MapBuilder{}
 	builder.BuildMap()
-	var node data.NodeI
-	node = data.ApplicationNodes[0]
-	for len(node.GetRightOutArcs()) != 0{
-		fmt.Println(node.GetID())
-		fmt.Println(reflect.TypeOf(node))
-		node = node.GetRightOutArcs()[0].DstNode
+	endTime2_2 := time.Now().UnixNano()
+
+	fd.Write([]byte("constructMap: "))
+	fd.Write([]byte(strconv.FormatInt(endTime2_2-startTime2_1, 10)))
+	fd.Write([]byte("\n"))
+
+	startTime3_1 := time.Now().UnixNano()
+	solver := flowMap.MapSolver{}
+	result, cost, flow := solver.GetMCMF(data.StartNode.GetID(), data.EndNode.GetID())
+
+	endTime3_2 := time.Now().UnixNano()
+
+	fd.Write([]byte("solve map: "))
+	fd.Write([]byte(strconv.FormatInt(endTime3_2-startTime3_1, 10)))
+	fd.Write([]byte("\n"))
+
+
+	fd.Close()
+	fmt.Println("result:")
+	for key, val := range result{
+		fmt.Print("["+key+", "+strconv.Itoa(val)+"]")
+		fmt.Print(" ")
 	}
-	fmt.Println(node.GetID())
-	fmt.Println(reflect.TypeOf(node))
-	fmt.Println("endNode: ", data.EndNode.GetID())
+	fmt.Println("cost:")
+	fmt.Println(cost)
+	fmt.Println("flow:")
+	fmt.Println(flow)
+
+
 
 
 
