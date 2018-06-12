@@ -48,16 +48,14 @@ func init()  {
 
 	TaskSum = 0
 	MachineSum = 0
-	TaskToMachineCost = make([][]int, 0)
+
+	// init TaskToMachineCost should be done after DB operation
 }
 
 /**
 	add l2 to l1
  */
 func ListAdd(l1 []int, l2 []int){
-	if len(l1) != len(l2) {
-		panic("List add should between the same length lists")
-	}
 	for i, _ := range l1{
 		l1[i] += l2[i]
 	}
@@ -67,9 +65,6 @@ func ListAdd(l1 []int, l2 []int){
 	sub l1 by l2
  */
 func ListSub(l1 []int, l2 []int){
-	if len(l1) != len(l2) {
-		panic("List sub should between the same length lists")
-	}
 	for i, _ := range l1{
 		l1[i] -= l2[i]
 	}

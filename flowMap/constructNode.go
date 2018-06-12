@@ -86,7 +86,7 @@ func (builder *MapBuilder)BuildArc(src data.NodeI, dst data.NodeI) (*data.Arc, *
 /**
 	this method can't return
  */
-func (builder *MapBuilder)BuildArcWithMutex(src data.MutexableNodeI, dst data.NodeI) (*data.Arc, *data.Arc) {
+func (builder *MapBuilder)BuildArcWithMutex(src data.MutexableNodeI, dst data.NodeI, cost int) (*data.Arc, *data.Arc) {
 	arc := &data.Arc{}
 	capacity := make([]int, data.RESOURCEDIMENSION) // todo this version only consider cpu resource
 	if node, ok := src.(*data.CaseNode); ok { // src: Case, dst: Mutex or Machine
@@ -98,7 +98,7 @@ func (builder *MapBuilder)BuildArcWithMutex(src data.MutexableNodeI, dst data.No
 		arc.SrcNode = tmpNode
 	}
 	arc.Capacity = capacity
-	arc.Cost = 0
+	arc.Cost = cost
 	arc.DstNode = dst
 	arc.ID = data.ArcCounter
 	data.ArcList = append(data.ArcList, arc)
@@ -115,7 +115,7 @@ func (builder *MapBuilder)BuildArcWithMutex(src data.MutexableNodeI, dst data.No
 	}
 
 	reverseArc.SrcNode = dst
-	reverseArc.Cost = 0
+	reverseArc.Cost = -cost
 	reverseArc.ID = data.ArcCounter
 	data.ArcList = append(data.ArcList, reverseArc)
 	data.ArcCounter++
@@ -280,10 +280,10 @@ func (build *MapBuilder) ConnectMap(acceptedTasks [][][]*data.Task, machineNode 
 			} else {
 				taskCurrentHeadNode = templateNode
 			}
-			arc, reverseArc := build.BuildArcWithMutex(taskCurrentHeadNode, machineNode)
-			for index3,_ := range acceptedTasks[index][index2] {
-				build.UpdateTaskToMachineCost(acceptedTasks[index][index2][index3].Index, machineNode.Machine.Index, 0)  // updata TaskToMachineCost cost
-			}
+			arc, reverseArc := build.BuildArcWithMutex(taskCurrentHeadNode, machineNode, data.TaskToMachineCost[acceptedTasks[index][index2][0].Index][machineNode.Machine.Index])
+			//for index3,_ := range acceptedTasks[index][index2] {
+			//	build.UpdateTaskToMachineCost(acceptedTasks[index][index2][index3].Index, machineNode.Machine.Index, 0)  // updata TaskToMachineCost cost
+			//}
 			build.AddArcTONodes(arc, false)
 			build.AddArcTONodes(reverseArc, true)
 
@@ -361,10 +361,10 @@ func (build *MapBuilder) BuildMutex(o data.MutexableNodeI, t data.MutexableNodeI
 	caseNode2.SourceTasks[0].HeadNode.CurrentHeadNode = caseNode2
 
 
-	arc1, reverseArc1 := build.BuildArcWithMutex(o, mutexNode)
+	arc1, reverseArc1 := build.BuildArcWithMutex(o, mutexNode,0)
 	build.AddArcTONodes(arc1, false)
 	build.AddArcTONodes(reverseArc1, true)
-	arc2, reverseArc2 := build.BuildArcWithMutex(t, mutexNode)
+	arc2, reverseArc2 := build.BuildArcWithMutex(t, mutexNode,0)
 	build.AddArcTONodes(arc2, false)
 	build.AddArcTONodes(reverseArc2, true)
 	arc3, reverseArc3 := build.BuildArc(mutexNode, caseNode1)

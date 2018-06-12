@@ -10,7 +10,6 @@ import (
 type DBReader interface {
 	GetTasks()
 	GetMachines()
-	InitTaskToMachineCost()
 }
 
 type MongoReader struct {
@@ -73,7 +72,7 @@ func (reader *MongoReader)GetSession() *mgo.Session{
  // 3、return sorted valid machines list
 func (reader *MongoReader)GetMachines() {
 	collection := reader.Session.DB(reader.Database).C(data.NODECOLLECTION)
-	if err := collection.Find(bson.M{}).All(&data.ClusterMachineList); err != nil{
+	if err := collection.Find(bson.M{}).Sort("uid").All(&data.ClusterMachineList); err != nil{
 		panic("Error appears when getting machineList")
 	}
 	data.MachineSum = len(data.ClusterMachineList)
@@ -90,7 +89,7 @@ func (reader *MongoReader)GetMachines() {
  // 5、get [][]*Task applicaitonAndTask indicate all tasks the applicaiton has, and it ordered by currentApplicaitonList order
 func (reader *MongoReader)GetTasks() {
 	collection := reader.Session.DB(reader.Database).C(data.INSTANCECOLLECTION)
-	if err := collection.Find(bson.M{}).All(&data.CurrentTaskList); err != nil{
+	if err := collection.Find(bson.M{}).Limit(500).Sort("uid").All(&data.CurrentTaskList); err != nil{
 		panic("Error appears when getting taskList")
 	}
 	data.TaskSum = len(data.CurrentTaskList)
@@ -100,14 +99,4 @@ func (reader *MongoReader)GetTasks() {
 
 }
 
-func (reader *MongoReader)InitTaskToMachineCost() {
-	for i := 0; i<data.TaskSum ; i++ {
-		toMachineCost := make([]int, data.MachineSum)
-		for j, _ := range toMachineCost {
-			toMachineCost[j] = data.MAXINTVALUE
-		}
-		data.TaskToMachineCost = append(data.TaskToMachineCost, toMachineCost)
-	}
-
-}
 

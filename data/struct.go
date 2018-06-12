@@ -259,3 +259,11 @@ func (arc *Arc) AddCapacity(flow []int){
 		arc.Capacity[i] += flow[i]
 	}
 }
+
+func (arc *Arc) CopyCapacity() []int{
+	capacity := make([]int, len(arc.Capacity))
+	for i, _ := range arc.Capacity{
+		capacity[i] = arc.Capacity[i]
+	}
+	return capacity
+}

@@ -2,6 +2,7 @@ package initial
 
 import (
 	"MCMF/data"
+	//"math/rand"
 )
 
 /**
@@ -43,6 +44,19 @@ func InitGlobal(){
 			}
 		}
 
+	}
+
+	// init TaskToMachineCost
+	data.TaskToMachineCost = make([][]int, data.TaskSum)
+	for i := 0; i<data.TaskSum ; i++ {
+		toMachineCost := make([]int, data.MachineSum)
+		//randSeed := rand.NewSource(100)
+		//random := rand.New(randSeed)
+		for j, _ := range toMachineCost {
+			//toMachineCost[j] = random.Intn(5)
+			toMachineCost[j] = 0
+		}
+		data.TaskToMachineCost[i] = toMachineCost
 	}
 
 }
@@ -96,7 +110,7 @@ func InitResource(){
 			appAccepted := make([][]*data.Task, 0)
 			for index3, _ := range data.ApplicationAndTask[index2] {
 				templateAccepted := make([]*data.Task, 0)
-				if isAccepted(&data.ClusterMachineList[index], data.ApplicationAndTask[index2][index3][0]) {
+				if IsAccepted(&data.ClusterMachineList[index], data.ApplicationAndTask[index2][index3][0]) {
 					templateAccepted = append(templateAccepted, data.ApplicationAndTask[index2][index3]...)
 				}
 				if len(templateAccepted) >0 {
@@ -111,15 +125,15 @@ func InitResource(){
 
 }
 
-func isAccepted(machine *data.Machine, task *data.Task) bool{
-	if contain(machine.MatchTag, task.MatchTag)&&contain(task.ExcludeTag, machine.ExcludeTag) {
+func IsAccepted(machine *data.Machine, task *data.Task) bool{
+	if Contain(machine.MatchTag, task.MatchTag)&&Contain(task.ExcludeTag, machine.ExcludeTag) {
 		return true
 	}else {
 		return false
 	}
 }
 
-func contain(s []string, d []string) bool {
+func Contain(s []string, d []string) bool {
 	for _, dVal := range d{
 		isContained := false
 		for _, sVal := range s{

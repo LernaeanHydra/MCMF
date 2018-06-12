@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	"MCMF/util"
-	"reflect"
 	"MCMF/initial"
 	"MCMF/flowMap"
 	"MCMF/data"
@@ -76,9 +75,7 @@ func main() {
 	fd.Write([]byte("\n"))
 
 	startTime2_1 := time.Now().UnixNano()
-	reader.InitTaskToMachineCost()
 	if mongoReader, ok := reader.(*util.MongoReader); ok {
-		fmt.Println(reflect.TypeOf(mongoReader))
 		defer mongoReader.Session.Close()
 	}else {
 		panic("type revert failed")

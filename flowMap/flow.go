@@ -31,8 +31,13 @@ func (solver *MapSolver)UpdateScheduledMachineTaskMap(task *data.Task, machineNo
 				machineNode.ScheduledTasks[tag] = indexList
 			}
 		}
-	}else { // we need to remove all
-		arcIndex := arcs[i][0]
+	}else { // we need to remove all, however, when regret process is on, may there is no mutex tag need to remove.
+		arcIndex := arcs[i][0] // reverse arc Id
+		// for test
+		if machineNode.GetID() == 661 && len(arcs) == 2{
+			fmt.Print("for test")
+		}
+		///////
 		for _, tag := range task.ExclusiveTag {
 			if _, ok := machineNode.ScheduledTasks[tag]; ok { // if this tag has exsited
 				for index,_ := range machineNode.ScheduledTasks[tag] {
@@ -45,9 +50,11 @@ func (solver *MapSolver)UpdateScheduledMachineTaskMap(task *data.Task, machineNo
 					}
 				}
 
-			}else{ // if this tag hasn't exsited
-				panic("this machine must has this tag before the task removed")
 			}
+			/** todo there sometimes need to remove the task's tag, which is not on the machine. this problem hasn't been solved yet **/
+			//else{ // if this tag hasn't exsited
+			//	panic("this machine must has this tag before the task removed")
+			//}
 		}
 	}
 
@@ -136,13 +143,13 @@ func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
 	cost := 0
 	flow := make([]int, data.RESOURCEDIMENSION)
 
-	counter := 0
+	//counter := 0
 	for true {
-		counter ++
-		fmt.Println("this is new spfa path " + strconv.Itoa(counter))
+		//counter ++
+		//fmt.Println("this is new spfa path " + strconv.Itoa(counter))
 		if isExsit, newCost, paths, arcs :=solver.GetSPFA(s, t); isExsit {
 			// paths[0] must start from startNode and after 0, all path start from machine Node.
-			newFlow := make([]int, data.RESOURCEDIMENSION)
+			var newFlow []int
 
 			// all paths ends at machineNode
 			// first path start from applicationNode
@@ -156,11 +163,10 @@ func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
 					}
 					task := taskNode.Task
 					// get flow of this path
-					pathFlow := data.NodeList[path[1]].GetLeftInArcs()[0].Capacity  // the flow of this task
 
-					for j, _ := range newFlow{
-						newFlow[j] = pathFlow[j]
-					}
+					pathFlow := data.NodeList[path[1]].GetLeftInArcs()[0].CopyCapacity()  // the flow of this task.
+
+					newFlow = pathFlow
 
 					// sub capacity of the arc on this path
 					solver.UpdateCapacityOfPath(arcs, i, pathFlow)
@@ -195,7 +201,7 @@ func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
 					task := templateNode.SourceTasks[0]
 
 					// get flow of this path
-					pathFlow := data.NodeList[path[1]].GetRightInArcs()[0].Capacity
+					pathFlow := task.GetCapacity()
 
 					// update the start machine's capacity after regret
 					solver.UpdateCapacityOfMachine(startMachineNode, pathFlow, false)
@@ -215,6 +221,7 @@ func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
 			flow = solver.AddFlow(flow, newFlow)
 			cost += solver.GetCost(newCost, newFlow)
 			// take apart of paths, add all of them to result
+			fmt.Println(paths)
 			for _, path := range paths {
 				var preNodeIndexStr string
 				for i, nodeIndex := range path {
@@ -272,12 +279,10 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 		gDist[i] = data.MAXINTVALUE  // default INT_MAX
 	}
 
-	gIsRegretted := make(map[int][]*data.Arc, 0) // all key is the index of the machineNode in NodeList.
-												// tell which arcs should be regretted by the min cost task
-
 	gDist[s] = 0
 	Q := list.New()  // Q is the loose queue, it record all node , from which the min cost to another node may change
 	Q.PushBack(s)
+	cont := 0
 	for Q.Len() > 0  {
 		nodeIndexElement := Q.Front()
 		Q.Remove(nodeIndexElement)
@@ -286,39 +291,20 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 			panic(err)
 		}
 		node := data.NodeList[nodeIndex]
-		_, isMachineNode := node.(*data.MachineNode)  // if srcNode is machineNode
-		var outArcList []*data.Arc
-		if arcList, ok := gIsRegretted[node.GetID()]; ok{ // if node is machineNode, and this machineNode's min cost task is mutexed with it now
-			outArcList = arcList
-		} else {
-			outArcList = node.GetRightOutArcs()
-		}
+		outArcList := node.GetRightOutArcs() // get right out arcs for iteration
+
 		for i, _ := range outArcList {
 			toNode := outArcList[i].DstNode
 			_, ok := toNode.(*data.MachineNode)  // check if dstNode is machineNode
 			toNodeIndex := toNode.GetID()
-			_, isEndNode := toNode.(*data.MetaNode)
 
-			if !isEndNode && (solver.HasScheduled(outArcList[i]) || gDist[nodeIndex]+outArcList[i].Cost >= gDist[toNodeIndex]) { // if no capacity or more cost
+			if solver.HasScheduled(outArcList[i]) || gDist[nodeIndex]+outArcList[i].Cost >= gDist[toNodeIndex] { // if no capacity or more cost
 				continue
-			}
-			// if toNode is EndNode, the arc must has enough capacity, and cost must be less or be equal
-			if isEndNode && gDist[nodeIndex]+outArcList[i].Cost == gDist[toNodeIndex] { // if dstNode is EndNode, we need to store all path that can get min cost
-				gPre[toNodeIndex] = append(gPre[toNodeIndex], nodeIndex)
-				gPath[toNodeIndex] = append(gPath[toNodeIndex], outArcList[i].ID)
-				continue
-			}
 
-			if isEndNode && gDist[nodeIndex]+outArcList[i].Cost < gDist[toNodeIndex] { // if dstNode is EndNode, we need to store all path that can get min cost
-				panic("this code shouldn't run")
-				gDist[toNodeIndex] = gDist[nodeIndex] + outArcList[i].Cost
-				gPre[toNodeIndex][0] = nodeIndex
-				gPath[toNodeIndex][0] = outArcList[i].ID
-				continue
 			}
 
 			// if !solver.HasScheduled(outArcList[i]) && gDist[nodeIndex]+outArcList[i].Cost < gDist[toNodeIndex]
-			if !isMachineNode && ok { // if dstNode is machineNode, we need to calculate the cost of scheduling this task to this machine(include mutexing and preemption)
+			if ok { // if dstNode is machineNode, we need to calculate the cost of scheduling this task to this machine(include mutexing and preemption)
 				// check if there is other tasks existed in the machine, which is mutexed with the task
 				templateNode, ok2 := node.(*data.TemplateNode)
 				if !ok2 {
@@ -345,29 +331,60 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 					}
 					// get regreting and scheduling cost
 					arcCost := outArcList[i].Cost // the cost for arc between templateNode and machienNode
-					cost, costForReverseArcList := solver.GetCostByRegretting(regretArcList, machineNode, arcCost) // get min cost for regretting
-					if cost < gDist[data.EndNode.GetID()] {  // if the cost is less than current min cost of EndNode
+					cost, costForReverseArcList, arcIndexList := solver.GetCostByRegretting(regretArcList, machineNode, arcCost) // get min cost for regretting
+
+					if cost < gDist[data.EndNode.GetID()] {  // if the cost is less than current min cost of EndNode, we need to updata the Dist, Pre, path on this path
+						// update endNode cost. remove all pre、path
+						gDist[data.EndNode.GetID()] = cost
+						gPre[data.EndNode.GetID()] = gPre[data.EndNode.GetID()][:0]
+						gPath[data.EndNode.GetID()] = gPath[data.EndNode.GetID()][:0]
+						gPre[toNodeIndex] = gPre[toNodeIndex][:0]
+						gPath[toNodeIndex] = gPath[toNodeIndex][:0]
+
 						// 1. update machine cost, pre, path
 						// 2. update reverseArc cost
-						// 3. update gIsRegret with regretArcList
-						// 4. pushback
+						// 3. update cost pre path on the path
+						// 4. update endNode pre path
 						gDist[toNodeIndex] = cost
-						gPre[toNodeIndex][0] = nodeIndex
-						gPath[toNodeIndex][0] = outArcList[i].ID
-						isRegrettedArcList := make([]*data.Arc, 0)
-						for i,_ := range regretArcList {
-							data.ArcList[regretArcList[i]].Cost = costForReverseArcList[i]
-							isRegrettedArcList = append(isRegrettedArcList, data.ArcList[regretArcList[i]])
-						}
-						gIsRegretted[toNodeIndex] = isRegrettedArcList
+						gPre[toNodeIndex] = append(gPre[toNodeIndex], nodeIndex)
+						gPath[toNodeIndex] = append(gPath[toNodeIndex], outArcList[i].ID)
 
-						Q.PushBack(toNodeIndex)
+						for j,_ := range regretArcList {
+							tempNode := data.ArcList[regretArcList[j]].DstNode
+							machineNode := tempNode.GetRightOutArcs()[arcIndexList[j]].DstNode.(*data.MachineNode)
+							gPre[machineNode.GetID()] = gPre[machineNode.GetID()][:0]
+							gPath[machineNode.GetID()] = gPath[machineNode.GetID()][:0]
+						}
+						preNode := toNode
+						for j,_ := range regretArcList {
+							// update reverseArc cost
+							data.ArcList[regretArcList[j]].Cost = costForReverseArcList[j]
+							// update templateNode
+							tempNode := data.ArcList[regretArcList[j]].DstNode
+							gDist[tempNode.GetID()] = gDist[preNode.GetID()] + data.ArcList[regretArcList[j]].Cost
+							gPre[tempNode.GetID()][0] = preNode.GetID()
+							gPath[tempNode.GetID()][0] = regretArcList[j]
+
+							// update machineNode, we need to append it.
+							machineNode := tempNode.GetRightOutArcs()[arcIndexList[j]].DstNode.(*data.MachineNode)
+							gDist[machineNode.GetID()] = cost
+							gPre[machineNode.GetID()] = append(gPre[machineNode.GetID()], tempNode.GetID())
+							gPath[machineNode.GetID()] = append(gPath[machineNode.GetID()], tempNode.GetRightOutArcs()[arcIndexList[j]].ID)
+
+							// update endNode, the machine node might be appended previously,so we need to avoid appending muti-times
+							// if pre has two src nodes, we can judge that the endNode has append this machineNode
+							if len(gPre[machineNode.GetID()]) == 1 {
+								gPre[data.EndNode.GetID()] = append(gPre[data.EndNode.GetID()], machineNode.GetID())
+								gPath[data.EndNode.GetID()] = append(gPath[data.EndNode.GetID()], machineNode.GetRightOutArcs()[0].ID)
+							}
+						}
 					}else{
 						continue // drop it
 					}
 				}else { // if not mutex. check its capacity, if enough add this machineNode to Stack, then delete that map key. or get preemption task list, and update preemption-task list to map
 					var cost int
 					var regretArcList []int
+					var arcIndexList []int
 					var costForReverseArcList []int
 					if !solver.HasEnoughCapacityForTask(toNode.GetRightOutArcs()[0].Capacity, templateNode.GetSourceTask()[0]) { // if not has enough capacity, then get arc list for preemption
 						var err error
@@ -377,7 +394,7 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 							continue
 						}
 						arcCost := outArcList[i].Cost // the cost for arc between templateNode and machienNode
-						cost, costForReverseArcList = solver.GetCostByRegretting(regretArcList, machineNode, arcCost) // get min cost for regretting
+						cost, costForReverseArcList, arcIndexList = solver.GetCostByRegretting(regretArcList, machineNode, arcCost) // get min cost for regretting
 					} else { // if capacity is enough
 						cost = outArcList[i].Cost
 					}
@@ -387,21 +404,52 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 						gDist[data.EndNode.GetID()] = cost
 						gPre[data.EndNode.GetID()] = gPre[data.EndNode.GetID()][:0]
 						gPath[data.EndNode.GetID()] = gPath[data.EndNode.GetID()][:0]
+						// todo we also need to remove machineNode's(include scheduling machine and rescheduling machine ) pre and path
+						gPre[toNodeIndex] = gPre[toNodeIndex][:0]
+						gPath[toNodeIndex] = gPath[toNodeIndex][:0]
 
-						// update machineNode
+						// todo we need to append
 						gDist[toNodeIndex] = cost
-						gPre[toNodeIndex][0] = nodeIndex
-						gPath[toNodeIndex][0] = outArcList[i].ID
-						Q.PushBack(toNodeIndex)
-						if regretArcList == nil {
-							delete(gIsRegretted, toNodeIndex) // if it has, delete it . if not, leave it
+						gPre[toNodeIndex] = append(gPre[toNodeIndex], nodeIndex)
+						gPath[toNodeIndex] = append(gPath[toNodeIndex], outArcList[i].ID)
+						// if there is no regretList
+						if regretArcList == nil { // if no arc need to be regret, we schedule the task to this machine
+
+							gPre[data.EndNode.GetID()] = append(gPre[data.EndNode.GetID()], machineNode.GetID())
+							gPath[data.EndNode.GetID()] = append(gPath[data.EndNode.GetID()], machineNode.GetRightOutArcs()[0].ID)
+							continue
 						}else {
-							isRegrettedArcList := make([]*data.Arc, 0)
-							for i,_ := range regretArcList {
-								data.ArcList[regretArcList[i]].Cost = costForReverseArcList[i]
-								isRegrettedArcList = append(isRegrettedArcList, data.ArcList[regretArcList[i]])
+							// todo we need to remove all reschedule machine pre and path.
+							for j,_ := range regretArcList {
+								tempNode := data.ArcList[regretArcList[j]].DstNode
+								machineNode := tempNode.GetRightOutArcs()[arcIndexList[j]].DstNode.(*data.MachineNode)
+								gPre[machineNode.GetID()] = gPre[machineNode.GetID()][:0]
+								gPath[machineNode.GetID()] = gPath[machineNode.GetID()][:0]
 							}
-							gIsRegretted[toNodeIndex] = isRegrettedArcList
+							preNode := toNode
+							for j,_ := range regretArcList {
+								// update reverseArc cost
+								data.ArcList[regretArcList[j]].Cost = costForReverseArcList[j]
+								// update templateNode
+								tempNode := data.ArcList[regretArcList[j]].DstNode
+								gDist[tempNode.GetID()] = gDist[preNode.GetID()] + data.ArcList[regretArcList[j]].Cost
+								gPre[tempNode.GetID()][0] = preNode.GetID()
+								gPath[tempNode.GetID()][0] = regretArcList[j]
+
+								// update machineNode, we need to append it.
+								machineNode := tempNode.GetRightOutArcs()[arcIndexList[j]].DstNode.(*data.MachineNode)
+								gDist[machineNode.GetID()] = cost
+								gPre[machineNode.GetID()] = append(gPre[machineNode.GetID()], tempNode.GetID())
+								gPath[machineNode.GetID()] = append(gPath[machineNode.GetID()], tempNode.GetRightOutArcs()[arcIndexList[j]].ID)
+
+								// update endNode, the machine node might be appended previously,so we need to avoid appending muti-times
+								// if pre has two src nodes, we can judge that the endNode has append this machineNode
+								if len(gPre[machineNode.GetID()]) == 1 {
+									gPre[data.EndNode.GetID()] = append(gPre[data.EndNode.GetID()], machineNode.GetID())
+									gPath[data.EndNode.GetID()] = append(gPath[data.EndNode.GetID()], machineNode.GetRightOutArcs()[0].ID)
+								}
+
+							}
 						}
 
 					}else {
@@ -416,36 +464,48 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 			}
 		}
 	}
+	cont++
+	fmt.Println(cont)
 	if gDist[data.EndNode.GetID()] != data.MAXINTVALUE {
 		nodeResultList := make([][]int, 0)
 		arcResultList := make([][]int, 0)
-		pathNum := len(gPre[data.EndNode.GetID()])
-		if pathNum < 1 {
-			panic("gPre[EndNOde] should have value")
-		}
-		for i:=0; i<pathNum; i++ {
-			nodeResult := make([]int, 0)
-			nodeIndex := gPre[data.EndNode.GetID()][i] // it all start with MachineNode, end with startNode
+		// todo pathNum should iterate gPre[data.EndNode.GetID()], and get the sum of the machines' pre branch
 
-			arcResult := make([]int, 0)
-			arcIndex := gPath[nodeIndex][0]
-
-			for gPre[nodeIndex][0] != -1 {
+		for i, machineNodeId := range gPre[data.EndNode.GetID()]{
+			for j, _ := range gPre[machineNodeId] {
+				nodeResult := make([]int, 0)
+				nodeIndex := gPre[data.EndNode.GetID()][i] // it all start with MachineNode, end with startNode
 				tmp := append([]int{}, nodeIndex)
 				nodeResult = append(tmp, nodeResult...)
-				nodeIndex = gPre[nodeIndex][0]
+				fmt.Println(nodeIndex)
 
+				arcResult := make([]int, 0)
+				arcIndex := gPath[nodeIndex][j]
 				tmp2 := append([]int{}, arcIndex)
 				arcResult = append(tmp2, arcResult...)
+
+				nodeIndex = gPre[nodeIndex][j]
 				arcIndex = gPath[nodeIndex][0]
+
+				for gPre[nodeIndex][0] != -1 {
+					fmt.Println(nodeIndex)
+					tmp := append([]int{}, nodeIndex)
+					nodeResult = append(tmp, nodeResult...)
+					nodeIndex = gPre[nodeIndex][0]
+
+					tmp2 := append([]int{}, arcIndex)
+					arcResult = append(tmp2, arcResult...)
+					arcIndex = gPath[nodeIndex][0]
+				}
+				// it dosen't contain startNode
+				nodeResultList = append(nodeResultList, nodeResult)
+				arcResultList = append(arcResultList, arcResult)
 			}
-			// it dosen't contain startNode
-			nodeResultList = append(nodeResultList, nodeResult)
-			arcResultList = append(arcResultList, arcResult)
 
 
 		}
 
+		fmt.Println(cont)
 		if len(nodeResultList) == 0 {
 			panic("there should be one Node path")
 		}else if len(nodeResultList) == 1{
@@ -454,7 +514,7 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 			// check reverse 3rd node is machineNode ?
 			node:= data.NodeList[nodeResultList[0][len(nodeResultList[0])-3]]
 			_, isMachineNode := node.(*data.MachineNode)
-			if isMachineNode {
+			if isMachineNode { // if there is one regret, we need to split it, or we leave it as it be
 				nodeResultList = append(nodeResultList, nodeResultList[0][len(nodeResultList[0])-3:])
 				nodeResultList[0] = nodeResultList[0][:len(nodeResultList[0])-2]
 
@@ -466,20 +526,21 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 			// 2. delete pre part for every path, and add pre part for new path 0
 			nodeResultList = append(nodeResultList, nodeResultList[0][len(nodeResultList[0])-3:])
 			for i:=1; i<len(nodeResultList)-1; i++ {
-				nodeResultList[i] = nodeResultList[0][len(nodeResultList[0])-3:]
+				nodeResultList[i] = nodeResultList[i][len(nodeResultList[0])-3:]
 			}
 			nodeResultList[0] = nodeResultList[0][:len(nodeResultList[0])-2]
 
 			arcResultList = append(arcResultList, arcResultList[0][len(arcResultList[0])-2:])
 			for i:=1; i<len(arcResultList)-1; i++ {
-				arcResultList[i] = arcResultList[0][len(arcResultList[0])-2:]
+				arcResultList[i] = arcResultList[i][len(arcResultList[0])-2:]
 			}
 			arcResultList[0] = arcResultList[0][:len(arcResultList[0])-2]
 
 		}
-
+		fmt.Println(cont)
 		return true, gDist[data.EndNode.GetID()], nodeResultList, arcResultList
 	}
+	fmt.Println("???")
 	return false, 0, nil, nil
 
 
@@ -532,13 +593,19 @@ func (solver *MapSolver)GetMutexArcList(exclusiveTaskTagList []string, machineNo
 	mutexArcList := make([]int,0)
 	for _, tag := range exclusiveTaskTagList{
 		if list, ok3 := machineNode.ScheduledTasks[tag]; ok3 { // existed
-			for _, arcIndex := range list {
+			for i, arcIndex := range list {
+				// if this arc is added to mutexArcList
 				isContained := false
 				for k,_ := range mutexArcList {
 					if mutexArcList[k] == arcIndex {
 						isContained = true
 						break
 					}
+				}
+				// we need to assure that this arc has not been scheduled, and it's not an error.
+				if solver.HasScheduled(data.ArcList[arcIndex]) {
+					machineNode.ScheduledTasks[tag] = append(machineNode.ScheduledTasks[tag][:i], machineNode.ScheduledTasks[tag][i+1:]...)
+					continue
 				}
 				if !isContained {
 					mutexArcList = append(mutexArcList, arcIndex)
@@ -632,16 +699,15 @@ func (solver *MapSolver)GetPreemptArcList(node *data.MachineNode, mutexArcList [
 /**
 	where should we schedule tasks that preempted or mutexed by the task and we can get min cost, and preemption cost list for every arc
  */
-func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretArcList []int)(int, []int){
+func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretArcList []int)(int, []int, []int){
 	if regretArcList == nil || len(regretArcList) == 0{
 		panic("GetMinCostAfterRegreting's regretArcList can't be empty")
 	}
 	costSum := 0
 	costList := make([]int, len(regretArcList))
-	preMachineNodeId := node.GetID()
-	scheduledMachineList := make([]int, len(regretArcList))
-	for i, _ := range scheduledMachineList{  // initial all task to -1 machine
-		scheduledMachineList[i] = -1
+	scheduledMachineArcList := make([]int, len(regretArcList))
+	for i, _ := range scheduledMachineArcList{  // initial all task to -1 machine
+		scheduledMachineArcList[i] = -1
 	}
 	for i, _:= range regretArcList {
 		node := data.ArcList[regretArcList[i]].DstNode
@@ -650,9 +716,24 @@ func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretA
 			panic("regretArc's dstNode must be templateNode")
 		}
 		task := templateNode.SourceTasks[0]
+
 		minCost := data.MAXINTVALUE
-		for j,_ := range data.TaskToMachineCost[task.Index] {
-			if data.TaskToMachineCost[task.Index][j] < minCost && preMachineNodeId != j{
+
+		for arcIndex, arc := range templateNode.GetRightOutArcs(){
+			// the new machine can't be the old machine
+			if(solver.HasScheduled(arc)){
+				continue
+			}
+			targetNode := arc.DstNode
+			targetMachineNode, err := targetNode.(*data.MachineNode)
+			if !err {
+				panic("templateNode can only connect to machineNode on its right")
+			}
+			j := targetMachineNode.Machine.Index
+			// 1. the new machine has less cost
+			// 2. the new machine has enough capacity
+			// 3. the new machine can't be mutexed with task
+			if data.TaskToMachineCost[task.Index][j] < minCost{
 				// check its capacity and its mutexed tag
 				hasEnoughCapacity := false
 				isMutexed := false
@@ -668,14 +749,14 @@ func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretA
 					}
 				}
 				if isMutexed {
-					break
+					continue
 				}
 				// check if has enough capacity
 				arcToEnd := toMachineNode.GetRightOutArcs()[0]
 				sumCapacity := make([]int, len(arcToEnd.Capacity))
 				data.ListAdd(sumCapacity, arcToEnd.Capacity)
-				for k,_ := range scheduledMachineList { // check if this machine has been used for previous task schedulation
-					if j == scheduledMachineList[k] {
+				for k:=0; k<i; k++ { // check if this machine has been used for previous task schedulation
+					if arcIndex == scheduledMachineArcList[k] {
 						node_ := data.ArcList[regretArcList[k]].DstNode
 						templateNode_ := node_.(*data.TemplateNode)
 						task_ := templateNode_.SourceTasks[0]
@@ -686,15 +767,16 @@ func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretA
 					hasEnoughCapacity = true
 				}
 				if !hasEnoughCapacity{
-					break
+					continue
 				}
 
 				// update minCost and scheduledMachineList
 				minCost = data.TaskToMachineCost[task.Index][j]
-				scheduledMachineList[i] = j
+				scheduledMachineArcList[i] = arcIndex
 
 
 			}
+
 		}
 		costList[i] = -minCost
 
@@ -705,16 +787,17 @@ func (solver *MapSolver)GetMinCostAfterRegreting(node *data.MachineNode, regretA
 	}
 
 
-	return  costSum, costList
+	return  costSum, costList, scheduledMachineArcList
 }
 
 /**
 	if capacity is not enough, we need to preempt, this func get the min cost of preemption so that this task can be scheduled to the machine
+	this func also tell us the cost of the reverseArc from machineNode to templateNode. and give the arcIndex of rightOutArc of templateNode
  */
-func (solver *MapSolver)GetCostByRegretting(regretArcList []int, machineNode *data.MachineNode, cost int)(int, []int){
-	regrettingCost, costForReverseArcList := solver.GetMinCostAfterRegreting(machineNode, regretArcList)
+func (solver *MapSolver)GetCostByRegretting(regretArcList []int, machineNode *data.MachineNode, cost int)(int, []int, []int){
+	regrettingCost, costForReverseArcList, machineTargerList := solver.GetMinCostAfterRegreting(machineNode, regretArcList)
 	cost += regrettingCost
-	return cost, costForReverseArcList
+	return cost, costForReverseArcList, machineTargerList
 }
 
 /**
