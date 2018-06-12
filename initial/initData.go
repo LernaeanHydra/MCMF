@@ -3,6 +3,7 @@ package initial
 import (
 	"MCMF/data"
 	//"math/rand"
+	"math/rand"
 )
 
 /**
@@ -50,11 +51,11 @@ func InitGlobal(){
 	data.TaskToMachineCost = make([][]int, data.TaskSum)
 	for i := 0; i<data.TaskSum ; i++ {
 		toMachineCost := make([]int, data.MachineSum)
-		//randSeed := rand.NewSource(100)
-		//random := rand.New(randSeed)
+		randSeed := rand.NewSource(100)
+		random := rand.New(randSeed)
 		for j, _ := range toMachineCost {
-			//toMachineCost[j] = random.Intn(5)
-			toMachineCost[j] = 0
+			toMachineCost[j] = random.Intn(5)
+			//toMachineCost[j] = 0
 		}
 		data.TaskToMachineCost[i] = toMachineCost
 	}

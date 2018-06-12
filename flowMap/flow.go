@@ -34,9 +34,9 @@ func (solver *MapSolver)UpdateScheduledMachineTaskMap(task *data.Task, machineNo
 	}else { // we need to remove all, however, when regret process is on, may there is no mutex tag need to remove.
 		arcIndex := arcs[i][0] // reverse arc Id
 		// for test
-		if machineNode.GetID() == 661 && len(arcs) == 2{
-			fmt.Print("for test")
-		}
+		//if machineNode.GetID() == 661 && len(arcs) == 2{
+		//	fmt.Print("for test")
+		//}
 		///////
 		for _, tag := range task.ExclusiveTag {
 			if _, ok := machineNode.ScheduledTasks[tag]; ok { // if this tag has exsited
@@ -143,10 +143,10 @@ func (solver *MapSolver)GetMCMF(s int, t int)(map[string]int, int, []int){
 	cost := 0
 	flow := make([]int, data.RESOURCEDIMENSION)
 
-	//counter := 0
+	counter := 0
 	for true {
-		//counter ++
-		//fmt.Println("this is new spfa path " + strconv.Itoa(counter))
+		counter ++
+		fmt.Println(counter)
 		if isExsit, newCost, paths, arcs :=solver.GetSPFA(s, t); isExsit {
 			// paths[0] must start from startNode and after 0, all path start from machine Node.
 			var newFlow []int
@@ -465,7 +465,7 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 		}
 	}
 	cont++
-	fmt.Println(cont)
+	//fmt.Println(cont)
 	if gDist[data.EndNode.GetID()] != data.MAXINTVALUE {
 		nodeResultList := make([][]int, 0)
 		arcResultList := make([][]int, 0)
@@ -505,7 +505,7 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 
 		}
 
-		fmt.Println(cont)
+		//fmt.Println(cont)
 		if len(nodeResultList) == 0 {
 			panic("there should be one Node path")
 		}else if len(nodeResultList) == 1{
@@ -537,7 +537,7 @@ func (solver *MapSolver)GetSPFA(s int, t int)(bool, int, [][]int, [][]int){
 			arcResultList[0] = arcResultList[0][:len(arcResultList[0])-2]
 
 		}
-		fmt.Println(cont)
+		//fmt.Println(cont)
 		return true, gDist[data.EndNode.GetID()], nodeResultList, arcResultList
 	}
 	fmt.Println("???")
