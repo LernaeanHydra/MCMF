@@ -264,6 +264,12 @@ func (build *MapBuilder) BuildMap() {
 		//build.BuildConstraints(data.ClusterMachineList[index].TaskAcceptedList)
 		build.ConnectMap(data.ClusterMachineList[index].TaskAcceptedList, data.ClusterMachineList[index].Node)
 	}
+	build.OrderTaskMinCostArcList() // order TaskMinCostArcIdList
+	//fmt.Println("~!!!!!!!!!")
+	//for _, arcId := range data.TaskMinCostArcIdList[0]{
+	//	fmt.Println(data.ArcList[arcId].Cost)
+	//}
+
 }
 
 /**
@@ -287,8 +293,19 @@ func (build *MapBuilder) ConnectMap(acceptedTasks [][][]*data.Task, machineNode 
 			build.AddArcTONodes(arc, false)
 			build.AddArcTONodes(reverseArc, true)
 
+			// add arc id list for every task
+			data.TaskMinCostArcIdList[acceptedTasks[index][index2][0].Index] = append(data.TaskMinCostArcIdList[acceptedTasks[index][index2][0].Index], arc)
+
+
 		}
 
+	}
+}
+
+// quickSort
+func (build *MapBuilder) OrderTaskMinCostArcList(){
+	for i:=0; i<data.TaskSum; i++ {
+		data.QuickSort(data.TaskMinCostArcIdList[i], 0, len(data.TaskMinCostArcIdList[i])-1)
 	}
 }
 

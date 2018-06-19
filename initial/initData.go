@@ -47,7 +47,9 @@ func InitGlobal(){
 
 	}
 
+	// init TaskMinCostArcIdList
 	// init TaskToMachineCost
+	data.TaskMinCostArcIdList = make([][]*data.Arc, data.TaskSum)
 	data.TaskToMachineCost = make([][]int, data.TaskSum)
 	for i := 0; i<data.TaskSum ; i++ {
 		toMachineCost := make([]int, data.MachineSum)
@@ -58,7 +60,14 @@ func InitGlobal(){
 			//toMachineCost[j] = 0
 		}
 		data.TaskToMachineCost[i] = toMachineCost
+
+		minCostArcIdList := make([]*data.Arc, 0)
+		data.TaskMinCostArcIdList[i] = minCostArcIdList
 	}
+
+
+
+
 
 }
 

@@ -89,7 +89,7 @@ func (reader *MongoReader)GetMachines() {
  // 5、get [][]*Task applicaitonAndTask indicate all tasks the applicaiton has, and it ordered by currentApplicaitonList order
 func (reader *MongoReader)GetTasks() {
 	collection := reader.Session.DB(reader.Database).C(data.INSTANCECOLLECTION)
-	if err := collection.Find(bson.M{}).Limit(500).Sort("uid").All(&data.CurrentTaskList); err != nil{
+	if err := collection.Find(bson.M{}).Sort("uid").All(&data.CurrentTaskList); err != nil{
 		panic("Error appears when getting taskList")
 	}
 	data.TaskSum = len(data.CurrentTaskList)

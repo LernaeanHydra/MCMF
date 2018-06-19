@@ -176,7 +176,7 @@ func (n *TaskNode) PrintSelf()  {
 type MachineNode struct {
 	Node
 	Machine *Machine
-	ScheduledTasks map[string][]int  //exclusive-tag ——> ArcList[] index
+	ScheduledTasks map[string][]int  //exclusive-tag ——> ArcList[] index (this is the index of ArcList)
 }
 
 func (n *MachineNode) PrintSelf()  {

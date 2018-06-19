@@ -61,6 +61,7 @@ func main() {
 	//fmt.Println(cost)
 	//fmt.Println("result:")
 	//fmt.Println(result)
+
 	fd,_:=os.OpenFile("result2.log",os.O_RDWR|os.O_CREATE|os.O_APPEND,0644)
 
 	startTime1_1 := time.Now().UnixNano()
