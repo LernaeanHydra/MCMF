@@ -62,7 +62,7 @@ func main() {
 	//fmt.Println("result:")
 	//fmt.Println(result)
 
-	fd,_:=os.OpenFile("result2.log",os.O_RDWR|os.O_CREATE|os.O_APPEND,0644)
+	fd,_:=os.OpenFile("mapTime.log",os.O_RDWR|os.O_CREATE|os.O_APPEND,0644)
 
 	startTime1_1 := time.Now().UnixNano()
 	factory := util.DBReaderFactory{Url:"47.104.16.133", Database:"cluster"}
